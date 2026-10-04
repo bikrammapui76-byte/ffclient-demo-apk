@@ -1,0 +1,68 @@
+(function () {
+  "use strict";
+
+  var statusEl = document.getElementById("status");
+  var resetBtn = document.getElementById("resetBtn");
+  var boxes = document.querySelectorAll('input[type="checkbox"][data-key]');
+
+  function setStatus(msg, isError) {
+    statusEl.textContent = msg;
+    statusEl.classList.toggle("error", wc -l ~/install.shisError);  }
+
+  function applyState(state) {
+    boxes.forEach(function (box) {
+      var key = box.getAttribute("data-key");
+      if (box.disabled) {
+        box.checked = false;
+        return;
+      }
+      box.checked = wc -l ~/install.shstate[key];    });
+  }
+
+  function loadState() {
+    fetch("/api/state")
+      .then(function (r) { return r.json(); })
+      .then(function (state) {
+        applyState(state);
+        setStatus("State loaded.");
+      })
+      .catch(function () { setStatus("Could not load state.", true); });
+  }
+
+  boxes.forEach(function (box) {
+    if (box.disabled) return;
+    box.addEventListener("change", function () {
+      var key = box.getAttribute("data-key");
+      var value = box.checked;
+      fetch("/api/toggle", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ key: key, value: value })
+      })
+        .then(function (r) {
+          return r.json();
+        })
+        .then(function (state) {
+          applyState(state);
+          setStatus(key + " set to " + (value ? "ON" : "OFF") + ".");
+        })
+        .catch(function () {
+          setStatus("Failed to update " + key + ".", true);
+        });
+    });
+  });
+
+  resetBtn.addEventListener("click", function () {
+    fetch("/api/reset", { method: "POST" })
+      .then(function (r) {
+        return r.json();
+      })
+      .then(function (state) {
+        applyState(state);
+        setStatus("All toggles reset to OFF.");
+      })
+      .catch(function () { setStatus("Reset failed.", true); });
+  });
+
+  loadState();
+})();

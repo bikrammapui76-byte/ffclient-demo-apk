@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>𝗛𝗲𝗹𝗹𝗼 𝘄𝗼𝗿𝗹𝗱 • Panel</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v={{ bust }}">
+</head>
+<body data-accent="{{ prefs.accent }}">
+  <div class="bg-glow g1"></div>
+  <div class="bg-glow g2"></div>
+
+  <main class="panel">
+    <header class="panel-head">
+      <h1>𝗛𝗲𝗹𝗹𝗼 𝘄𝗼𝗿𝗹𝗱 <span class="dot">•</span> <span class="sub-title">𝗣𝗮𝗻𝗲𝗹</span></h1>
+      <p class="tagline" id="welcome">{% if prefs.name %}Welcome, {{ prefs.name }}{% else %}A simple toggle board that saves its state locally.{% endif %}</p>
+    </header>
+
+    <section class="rows">
+
+      <div class="card">
+        <div class="row">
+          <div class="row-info">
+            <span class="row-name">𝗔𝗜𝗠</span>
+            <span class="row-desc">Aim lock</span>
+          </div>
+          <label class="switch">
+            <input type="checkbox" data-key="AIM" {% if state.AIM %}checked{% endif %}>
+            <span class="slider"></span>
+          </label>
+        </div>
+        <div class="subopts {% if not state.AIM %}locked{% endif %}" id="aimSub">
+          <button type="button" class="opt {% if state.HEAD %}active{% endif %}" data-sub="HEAD">
+            <span class="circle"></span><span class="opt-label">Head</span>
+          </button>
+          <button type="button" class="opt {% if state.BODY %}active{% endif %}" data-sub="BODY">
+            <span class="circle"></span><span class="opt-label">Body</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="row">
+          <div class="row-info">
+            <span class="row-name">𝗘𝗦𝗣</span>
+            <span class="row-desc">Location</span>
+          </div>
+          <label class="switch">
+            <input type="checkbox" data-key="ESP" {% if state.ESP %}checked{% endif %}>
+            <span class="slider"></span>
+          </label>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="row">
+          <div class="row-info">
+            <span class="row-name">𝗠𝟭</span>
+            <span class="row-desc">Wall hack</span>
+          </div>
+          <label class="switch">
+            <input type="checkbox" data-key="M1" {% if state.M1 %}checked{% endif %}>
+            <span class="slider"></span>
+          </label>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="row">
+          <div class="row-info">
+            <span class="row-name">𝗡𝗢 𝗥𝗘𝗖𝗢𝗜𝗟</span>
+            <span class="row-desc">Smooth</span>
+          </div>
+          <label class="switch">
+            <input type="checkbox" data-key="NORECOIL" {% if state.NORECOIL %}checked{% endif %}>
+            <span class="slider"></span>
+          </label>
+        </div>
+      </div>
+
+    </section>
+
+    <div class="btn-grid top">
+      <button id="resetBtn" class="btn btn-primary" type="button">𝗥𝗘𝗦𝗘𝗧 𝗔𝗟𝗟</button>
+      <button id="injectBtn" class="btn btn-primary" type="button">𝗜𝗡𝗝𝗘𝗖𝗧</button>
+    </div>
+
+    <div class="btn-grid">
+      <button class="btn btn-ghost" type="button" data-open="profileModal">𝗣𝗥𝗢𝗙𝗜𝗟𝗘</button>
+      <button class="btn btn-ghost" type="button" data-open="settingsModal">𝗦𝗘𝗧𝗧𝗜𝗡𝗚𝗦</button>
+      <button class="btn btn-danger wide" type="button" id="clearBtn">𝗖𝗟𝗘𝗔𝗥 𝗦𝗧𝗔𝗧𝗘</button>
+    </div>
+
+    <div id="status" class="status">Ready.</div>
+
+    <footer class="chips">
+      <span class="chip">Local demo • Saves to state.json</span>
+      <span class="chip">No game hooks / No cheats</span>
+      <span class="chip">v{{ version }}</span>
+    </footer>
+  </main>
+
+  <div class="modal" id="profileModal" hidden>
+    <div class="modal-card">
+      <h2>Profile</h2>
+      <label class="field">
+        <span>Display name</span>
+        <input type="text" id="nameInput" maxlength="24" placeholder="Your name" value="{{ prefs.name }}">
+      </label>
+      <div class="modal-actions">
+        <button class="btn btn-ghost" type="button" data-close>Cancel</button>
+        <button class="btn btn-solid" type="button" id="saveProfile">Save</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal" id="settingsModal" hidden>
+    <div class="modal-card">
+      <h2>Settings</h2>
+
+      <div class="info-grid">
+        <div class="info-box">
+          <span class="info-label">Time (India)</span>
+          <span class="info-value" id="istTime">--:--:--</span>
+          <span class="info-sub" id="istDate">--</span>
+        </div>
+        <div class="info-box">
+          <span class="info-label">Ping</span>
+          <span class="info-value" id="netSpeed">-- ms</span>
+          <span class="info-sub" id="netType">--</span>
+        </div>
+      </div>
+      <div class="version-line">Version <b>v{{ version }}</b></div>
+
+      <div class="field">
+        <span>Accent color</span>
+        <div class="swatches">
+          <button type="button" class="swatch s-cyan" data-accent="cyan" aria-label="Red"></button>
+          <button type="button" class="swatch s-pink" data-accent="pink" aria-label="Rose"></button>
+          <button type="button" class="swatch s-green" data-accent="green" aria-label="Orange"></button>
+        </div>
+      </div>
+
+      <div class="link-grid">
+        <button type="button" class="btn btn-ghost" data-open="aboutModal">About</button>
+        <button type="button" class="btn btn-ghost" data-open="supportModal">Support</button>
+        <a class="btn btn-ghost" href="https://t.me/" target="_blank" rel="noopener noreferrer">Telegram</a>
+        <a class="btn btn-ghost" href="https://github.com/" target="_blank" rel="noopener noreferrer">GitHub</a>
+      </div>
+
+      <div class="modal-actions">
+        <button class="btn btn-solid" type="button" data-close>Done</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal" id="aboutModal" hidden>
+    <div class="modal-card">
+      <h2>About</h2>
+      <p class="modal-text">𝗛𝗲𝗹𝗹𝗼 𝘄𝗼𝗿𝗹𝗱 Panel v{{ version }}<br>A local demo toggle board built with Flask. Toggles are only saved to state.json. It has no game hooks and does not modify any game or app.</p>
+      <div class="modal-actions">
+        <button class="btn btn-solid" type="button" data-close>Close</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal" id="supportModal" hidden>
+    <div class="modal-card">
+      <h2>Support</h2>
+      <p class="modal-text">Need help? Open Settings and use the Telegram or GitHub buttons to reach out or report an issue.</p>
+      <div class="modal-actions">
+        <button class="btn btn-solid" type="button" data-close>Close</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="{{ url_for('static', filename='app.js') }}?v={{ bust }}"></script>
+</body>
+</html>
