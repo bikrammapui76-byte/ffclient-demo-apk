@@ -1,171 +1,269 @@
 (function () {
   "use strict";
 
-  var DEFAULTS = {
-    AIM: false,
-    HEAD: false,
-    BODY: false,
-    ESP: false,
-    M1: false,
-    NORECOIL: false
-  };
-
-  var state = JSON.parse(localStorage.getItem("panelState") || "null") || DEFAULTS;
-  var prefs = JSON.parse(localStorage.getItem("panelPrefs") || "null") || {
-    name: "",
-    accent: "cyan"
-  };
-
-  function save() {
-    localStorage.setItem("panelState", JSON.stringify(state));
-    localStorage.setItem("panelPrefs", JSON.stringify(prefs));
-  }
-
-  function normalize() {
-    if (!state.AIM) {
-      state.HEAD = false;
-      state.BODY = false;
-    } else if (!state.HEAD && !state.BODY) {
-      state.HEAD = true;
-    } else if (state.HEAD && state.BODY) {
-      state.BODY = false;
-    }
-  }
-
-  function applyState() {
-    normalize();
-
-    document.querySelectorAll("[data-key]").forEach(function (el) {
-      el.checked = !!state[el.getAttribute("data-key")];
-    });
-
-    var sub = document.getElementById("aimSub");
-    if (sub) sub.classList.toggle("locked", !state.AIM);
-
-    document.querySelectorAll("[data-sub]").forEach(function (el) {
-      el.classList.toggle("active", !!state[el.getAttribute("data-sub")]);
-    });
-
-    var welcome = document.getElementById("welcome");
-    if (welcome) {
-      welcome.textContent = prefs.name
-        ? "Welcome, " + prefs.name
-        : "A simple toggle board that saves its state locally.";
-    }
-
-    document.body.setAttribute("data-accent", prefs.accent || "cyan");
-    save();
-  }
-
-  document.querySelectorAll("[data-key]").forEach(function (el) {
-    el.addEventListener("change", function () {
-      state[el.getAttribute("data-key")] = el.checked;
-      normalize();
-      applyState();
-    });
-  });
-
-  document.querySelectorAll("[data-sub]").forEach(function (el) {
-    el.addEventListener("click", function () {
-      if (!state.AIM) return;
-
-      var key = el.getAttribute("data-sub");
-      state.HEAD = key === "HEAD";
-      state.BODY = key === "BODY";
-      applyState();
-    });
-  });
-
-  var reset = document.getElementById('resetBtn');
-  if (reset) {
-    reset.addEventListener("click", function () {
-      state = {
-        AIM: false,
-        HEAD: false,
-        BODY: false,
-        ESP: false,
-        M1: false,
-        NORECOIL: false
-      };
-      applyState();
-    });
-  }
-
-  var clear = document.getElementById('clearBtn');
-  if (clear) {
-    clear.addEventListener("click", function () {
-      localStorage.removeItem("panelState");
-      localStorage.removeItem("panelPrefs");
-      state = Object.assign({}, DEFAULTS);
-      prefs = { name: "", accent: "cyan" };
-      applyState();
-    });
-  }
-
+  var statusEl = document.getElementById("status");
+  var welcomeEl = document.getElementById("welcome");
+  var defaultTagline = "A simple toggle board that saves its state locally.";
+  var boxes = document.querySelectorAll('input[type="checkbox"][data-key]');
+  var subWrap = document.getElementById("aimSub");
+  var opts = document.querySelectorAll(".opt[data-sub]");
+  var swatches = document.querySelectorAll(".swatch");
   var nameInput = document.getElementById("nameInput");
-  if (nameInput) {
-    nameInput.value = prefs.name || "";
-    nameInput.addEventListener("input", function () {
-      prefs.name = nameInput.value.slice(0, 24);
-      save();
-      applyState();
-    });
+  var istTime = document.getElementById("istTime");
+  var istDate = document.getElementById("istDate");
+  var netSpeed = document.getElementById("netSpeed");
+  var netType = document.getElementById("netType");
+  var settingsModal = document.getElementById("settingsModal");
+  var DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+  var MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+  function pad(n) { return n < 10 ? "0" + n : "" + n; }
+
+  function setStatus(msg, isError) {
+    statusEl.textContent = msg;
+    statusEl.classList.toggle("error", !!isError);
   }
 
-  document.querySelectorAll("[data-accent]").forEach(function (el) {
-    el.addEventListener("click", function () {
-      prefs.accent = el.getAttribute("data-accent");
-      applyState();
-    });
-  });
+  function api(url, method, body) {
+    return new Promise(function (resolve, reject) {
+      var state = JSON.parse(localStorage.getItem("panelState") || "null") || {
+        AIM:false, HEAD:false, BODY:false, ESP:false, M1:false, NORECOIL:false
+      };
+      var prefs = JSON.parse(localStorage.getItem("panelPrefs") || "null") || {
+        name:"", accent:"cyan"
+      };
 
-  document.querySelectorAll("[data-open]").forEach(function (el) {
-    el.addEventListener("click", function () {
-      var id = el.getAttribute("data-open");
-      var modal = document.getElementById(id);
-      if (modal) modal.classList.add("show");
-    });
-  });
-
-  document.querySelectorAll("[data-close]").forEach(function (el) {
-    el.addEventListener("click", function () {
-      var id = el.getAttribute("data-close");
-      var modal = document.getElementById(id);
-      if (modal) modal.classList.remove("show");
-    });
-  });
-
-  document.querySelectorAll("[data-game]").forEach(function (el) {
-    el.addEventListener("click", function () {
-      document.querySelectorAll("[data-game]").forEach(function (item) {
-        item.classList.remove("active");
-      });
-      el.classList.add("active");
-    });
-  });
-
-  var saveProfile = document.getElementById("saveProfile");
-  if (saveProfile) {
-    saveProfile.addEventListener("click", function () {
-      if (nameInput) {
-        prefs.name = nameInput.value.slice(0, 24);
-        save();
-        applyState();
+      function save() {
+        localStorage.setItem("panelState", JSON.stringify(state));
+        localStorage.setItem("panelPrefs", JSON.stringify(prefs));
       }
-      var modal = document.getElementById("profileModal");
-      if (modal) modal.classList.remove("show");
+
+      if (url.indexOf("/api/state") === 0) { resolve(state); return; }
+
+      if (url.indexOf("/api/prefs") === 0) {
+        if (body) {
+          if (body.name !== undefined) prefs.name = String(body.name).slice(0,24);
+          if (body.accent !== undefined) prefs.accent = body.accent;
+          save();
+        }
+        resolve(prefs); return;
+      }
+
+      if (url.indexOf("/api/reset") === 0) {
+        state = {AIM:false,HEAD:false,BODY:false,ESP:false,M1:false,NORECOIL:false};
+        save(); resolve(state); return;
+      }
+
+      if (url.indexOf("/api/clear") === 0) {
+        localStorage.removeItem("panelState");
+        localStorage.removeItem("panelPrefs");
+        state = {AIM:false,HEAD:false,BODY:false,ESP:false,M1:false,NORECOIL:false};
+        prefs = {name:"",accent:"cyan"};
+        resolve({state:state,prefs:prefs}); return;
+      }
+
+      if (url.indexOf("/api/toggle") === 0 && body) {
+        var key = body.key;
+        if (key === "HEAD" || key === "BODY") {
+          if (!state.AIM) { reject(new Error("Turn AIM on first")); return; }
+          state.HEAD = key === "HEAD";
+          state.BODY = key === "BODY";
+        } else if (state.hasOwnProperty(key)) {
+          state[key] = !!body.value;
+          if (!state.AIM) { state.HEAD=false; state.BODY=false; }
+        }
+        save(); resolve(state); return;
+      }
+
+      reject(new Error("Unknown request"));
     });
   }
 
-  var injectBtn = document.getElementById("injectBtn");
-  if (injectBtn) {
-    injectBtn.addEventListener("click", function () {
-      injectBtn.textContent = "✓ DEMO READY";
-      setTimeout(function () {
-        injectBtn.textContent = "𝗜𝗡𝗝𝗘𝗖";
-      }, 1200);
+  boxes.forEach(function (box) {
+    var tag = document.createElement("span");
+    tag.className = "tag";
+    tag.textContent = "OFF";
+    var row = box.closest(".row");
+    row.insertBefore(tag, box.closest("label"));
+  });
+
+  function applyState(state) {
+    boxes.forEach(function (box) {
+      var on = !!state[box.getAttribute("data-key")];
+      box.checked = on;
+      var card = box.closest(".card");
+      card.classList.toggle("on", on);
+      card.querySelector(".tag").textContent = on ? "ON" : "OFF";
+    });
+    subWrap.classList.toggle("locked", !state.AIM);
+    opts.forEach(function (o) {
+      o.classList.toggle("active", !!state[o.getAttribute("data-sub")]);
     });
   }
 
-  applyState();
+  function applyPrefs(prefs) {
+    document.body.setAttribute("data-accent", prefs.accent);
+    welcomeEl.textContent = prefs.name ? "Welcome, " + prefs.name : defaultTagline;
+    nameInput.value = prefs.name || "";
+    swatches.forEach(function (s) {
+      s.classList.toggle("active", s.getAttribute("data-accent") === prefs.accent);
+    });
+  }
+
+  function openModal(id) { document.getElementById(id).hidden = false; }
+  function closeModal(el) { el.hidden = true; }
+
+  function tickTime() {
+    var now = new Date();
+    var h = now.getHours();
+    var ampm = h >= 12 ? "PM" : "AM";
+    var h12 = h % 12 === 0 ? 12 : h % 12;
+    istTime.textContent = pad(h12) + ":" + pad(now.getMinutes()) + ":" + pad(now.getSeconds()) + " " + ampm;
+    istDate.textContent = DAYS[now.getDay()] + ", " + pad(now.getDate()) + " " +
+      MONTHS[now.getMonth()] + " " + now.getFullYear() + " • " +
+      (Intl.DateTimeFormat().resolvedOptions().timeZone || "Local");
+  }
+
+  var pinging = false;
+  function updateNet() {
+    var c = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+    var extra = [];
+    if (c) {
+      if (c.effectiveType) extra.push(c.effectiveType.toUpperCase());
+      if (c.downlink !== undefined) extra.push(c.downlink + " Mbps");
+    }
+    if (!navigator.onLine) {
+      netSpeed.textContent = "Offline";
+      netType.textContent = "No connection";
+      return;
+    }
+    if (pinging) return;
+    pinging = true;
+    var t0 = performance.now();
+    fetch("https://www.gstatic.com/generate_204?_=" + Date.now(), {mode:"no-cors",cache:"no-store"})
+      .then(function () {
+        netSpeed.textContent = Math.round(performance.now() - t0) + " ms";
+        netType.textContent = extra.length ? extra.join(" • ") : "Online";
+      })
+      .catch(function () {
+        netSpeed.textContent = "-- ms";
+        netType.textContent = extra.length ? extra.join(" • ") : "Online";
+      })
+      .then(function () { pinging = false; });
+  }
+
+  boxes.forEach(function (box) {
+    box.addEventListener("change", function () {
+      var key = box.getAttribute("data-key");
+      var value = box.checked;
+      api("/api/toggle", "POST", { key: key, value: value })
+        .then(function (state) {
+          applyState(state);
+          setStatus(key + " set to " + (value ? "ON" : "OFF") + ".");
+        })
+        .catch(function () {
+          box.checked = !value;
+          setStatus("Failed to update " + key + ".", true);
+        });
+    });
+  });
+
+  opts.forEach(function (o) {
+    o.addEventListener("click", function () {
+      var key = o.getAttribute("data-sub");
+      api("/api/toggle", "POST", { key: key, value: true })
+        .then(function (state) {
+          applyState(state);
+          setStatus(key + " selected.");
+        })
+        .catch(function () { setStatus("Turn AIM on first.", true); });
+    });
+  });
+
+  document.getElementById("resetBtn").addEventListener("click", function () {
+    api("/api/reset", "POST")
+      .then(function (state) { applyState(state); setStatus("All toggles reset to OFF."); })
+      .catch(function () { setStatus("Reset failed.", true); });
+  });
+
+
+  document.querySelectorAll("[data-open]").forEach(function (btn) {
+    btn.addEventListener("click", function () {
+      var id = btn.getAttribute("data-open");
+      if (id === "settingsModal") { tickTime(); updateNet(); }
+      openModal(id);
+    });
+  });
+  document.querySelectorAll(".modal").forEach(function (modal) {
+    modal.addEventListener("click", function (e) {
+      if (e.target === modal || e.target.hasAttribute("data-close")) closeModal(modal);
+    });
+  });
+  document.addEventListener("keydown", function (e) {
+    if (e.key === "Escape") document.querySelectorAll(".modal").forEach(closeModal);
+  });
+
+  document.getElementById("saveProfile").addEventListener("click", function () {
+    api("/api/prefs", "POST", { name: nameInput.value })
+      .then(function (prefs) {
+        applyPrefs(prefs);
+        closeModal(document.getElementById("profileModal"));
+        setStatus("Profile saved.");
+      })
+      .catch(function () { setStatus("Could not save profile.", true); });
+  });
+
+  swatches.forEach(function (s) {
+    s.addEventListener("click", function () {
+      api("/api/prefs", "POST", { accent: s.getAttribute("data-accent") })
+        .then(function (prefs) { applyPrefs(prefs); setStatus("Accent updated."); })
+        .catch(function () { setStatus("Could not save settings.", true); });
+    });
+  });
+
+  document.getElementById("clearBtn").addEventListener("click", function () {
+    if (!window.confirm("Clear all saved data (toggles, profile, settings)?")) return;
+    api("/api/clear", "POST")
+      .then(function (res) {
+        applyState(res.state);
+        applyPrefs(res.prefs);
+        setStatus("All saved data cleared.");
+      })
+      .catch(function () { setStatus("Clear failed.", true); });
+  });
+
+  setInterval(tickTime, 1000);
+  setInterval(function () { if (!settingsModal.hidden) updateNet(); }, 3000);
+  tickTime();
+
+  Promise.all([api("/api/state"), api("/api/prefs")])
+    .then(function (r) { applyState(r[0]); applyPrefs(r[1]); setStatus("State loaded."); })
+    .catch(function () { setStatus("Could not load state.", true); });
+})();
+
+(function () {
+  var pick = document.querySelectorAll("#gamePick .opt");
+  var btn = document.getElementById("injectBtn");
+  var statusEl = document.getElementById("status");
+  var current = localStorage.getItem("gamePkg") || "com.dts.freefireth";
+
+  function paint() {
+    pick.forEach(function (o) {
+      o.classList.toggle("active", o.getAttribute("data-game") === current);
+    });
+  }
+  pick.forEach(function (o) {
+    o.addEventListener("click", function () {
+      current = o.getAttribute("data-game");
+      localStorage.setItem("gamePkg", current);
+      paint();
+      statusEl.textContent = o.querySelector(".opt-label").textContent + " selected.";
+    });
+  });
+  btn.addEventListener("click", function () {
+    var fallback = encodeURIComponent("https://play.google.com/store/apps/details?id=" + current);
+    statusEl.textContent = "Opening game...";
+    window.location.href = "intent://#Intent;package=" + current + ";S.browser_fallback_url=" + fallback + ";end";
+  });
+  paint();
 })();
