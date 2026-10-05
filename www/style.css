@@ -306,3 +306,5 @@ body {
 .opt.active .circle { background: var(--neon) !important; border-color: #fff !important; box-shadow: 0 0 14px var(--neon) !important; }
 .opt:not(.active) .circle { background: transparent; }
 .opt.active .opt-label { font-weight: 800; }
+
+.game-pick { padding: 12px 0 0; }

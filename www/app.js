@@ -1,40 +1,139 @@
-(function(){
-"use strict";
-var KEY="demoPanelState";
-var PREF="demoPanelPrefs";
-var DEFAULT_STATE={AIM:false,HEAD:false,BODY:false,ESP:false,M1:false,NORECOIL:false};
-var DEFAULT_PREFS={name:"",accent:"cyan"};
-function clone(o){return JSON.parse(JSON.stringify(o));}
-function getState(){try{return Object.assign(clone(DEFAULT_STATE),JSON.parse(localStorage.getItem(KEY)||"{}"));}catch(e){return clone(DEFAULT_STATE);}}
-function saveState(s){localStorage.setItem(KEY,JSON.stringify(s));}
-function getPrefs(){try{return Object.assign(clone(DEFAULT_PREFS),JSON.parse(localStorage.getItem(PREF)||"{}"));}catch(e){return clone(DEFAULT_PREFS);}}
-function savePrefs(p){localStorage.setItem(PREF,JSON.stringify(p));}
-var statusEl=document.getElementById("status");
-function setStatus(m,e){if(statusEl){statusEl.textContent=m;statusEl.classList.toggle("error",!!e);}}
-var welcomeEl=document.getElementById("welcome");
-var nameInput=document.getElementById("nameInput");
-var istTime=document.getElementById("istTime");
-var istDate=document.getElementById("istDate");
-var netSpeed=document.getElementById("netSpeed");
-var netType=document.getElementById("netType");
-var settingsModal=document.getElementById("settingsModal");
-var boxes=document.querySelectorAll('input[type="checkbox"][data-key]');
-var subWrap=document.getElementById("aimSub");
-var opts=document.querySelectorAll(".opt[data-sub]");
-var swatches=document.querySelectorAll(".swatch");
-function normalize(s){if(!s.AIM){s.HEAD=false;s.BODY=false;}if(s.HEAD&&s.BODY)s.BODY=false;return s;}
-function applyState(s){s=normalize(s);boxes.forEach(function(b){var k=b.getAttribute("data-key"),on=!!s[k];b.checked=on;var c=b.closest(".card");if(c){c.classList.toggle("on",on);var t=c.querySelector(".tag");if(t)t.textContent=on?"ON":"OFF";}});if(subWrap)subWrap.classList.toggle("locked",!s.AIM);opts.forEach(function(o){o.classList.toggle("active",!!s[o.getAttribute("data-sub")]);});saveState(s);}
-boxes.forEach(function(b){b.addEventListener("change",function(){var s=getState(),k=b.getAttribute("data-key");if(k==="HEAD"||k==="BODY"){if(!s.AIM){b.checked=false;setStatus("Turn AIM on first.",true);return;}s.HEAD=k==="HEAD";s.BODY=k==="BODY";}else{s[k]=b.checked;}applyState(s);setStatus(k+" set to "+(s[k]?"ON":"OFF")+".");});});
-opts.forEach(function(o){o.addEventListener("click",function(){var s=getState();if(!s.AIM){setStatus("Turn AIM on first.",true);return;}var k=o.getAttribute("data-sub");s.HEAD=k==="HEAD";s.BODY=k==="BODY";applyState(s);setStatus(k+" selected.");});});
-var resetBtn=document.getElementById("resetBtn");if(resetBtn)resetBtn.addEventListener("click",function(){applyState(clone(DEFAULT_STATE));setStatus("All toggles reset to OFF.");});
-var injectBtn=document.getElementById("injectBtn");if(injectBtn)injectBtn.addEventListener("click",function(){setStatus("Demo mode: no game hooks or injection performed.");});
-document.querySelectorAll("[data-open]").forEach(function(b){b.addEventListener("click",function(){var id=b.getAttribute("data-open");openModal(id);});});
-function openModal(id){var m=document.getElementById(id);if(m)m.hidden=false;}
-function closeModal(m){if(m)m.hidden=true;}
-document.querySelectorAll(".modal").forEach(function(m){m.addEventListener("click",function(e){if(e.target===m||e.target.hasAttribute("data-close"))closeModal(m);});});
-document.addEventListener("keydown",function(e){if(e.key==="Escape")document.querySelectorAll(".modal").forEach(closeModal);});
-function tickTime(){if(!istTime||!istDate)return;var n=new Date(Date.now()+19800000),h=n.getUTCHours(),a=h>=12?"PM":"AM",h12=h%12||12;istTime.textContent=(h12<10?"0":"")+h12+":"+String(n.getUTCMinutes()).padStart(2,"0")+":"+String(n.getUTCSeconds()).padStart(2,"0")+" "+a;istDate.textContent=n.toUTCString().slice(0,16)+" • IST";}
-function updateNetwork(){if(!netSpeed||!netType)return;if(!navigator.onLine){netSpeed.textContent="Offline";netType.textContent="No connection";return;}netSpeed.textContent="Local";netType.textContent="WebView";}
-tickTime();updateNetwork();setInterval(tickTime,1000);
-applyState(getState());applyPrefs(getPrefs());setStatus("Ready • Local storage enabled.");
+(function () {
+  "use strict";
+
+  var DEFAULTS = {
+    AIM: false,
+    HEAD: false,
+    BODY: false,
+    ESP: false,
+    M1: false,
+    NORECOIL: false
+  };
+
+  var state = JSON.parse(localStorage.getItem("panelState") || "null") || DEFAULTS;
+  var prefs = JSON.parse(localStorage.getItem("panelPrefs") || "null") || {
+    name: "",
+    accent: "cyan"
+  };
+
+  function save() {
+    localStorage.setItem("panelState", JSON.stringify(state));
+    localStorage.setItem("panelPrefs", JSON.stringify(prefs));
+  }
+
+  function normalize() {
+    if (!state.AIM) {
+      state.HEAD = false;
+      state.BODY = false;
+    } else if (!state.HEAD && !state.BODY) {
+      state.HEAD = true;
+    } else if (state.HEAD && state.BODY) {
+      state.BODY = false;
+    }
+  }
+
+  function applyState() {
+    normalize();
+
+    document.querySelectorAll("[data-key]").forEach(function (el) {
+      el.checked = !!state[el.getAttribute("data-key")];
+    });
+
+    var sub = document.getElementById("aimSub");
+    if (sub) sub.classList.toggle("locked", !state.AIM);
+
+    document.querySelectorAll("[data-sub]").forEach(function (el) {
+      el.classList.toggle("active", !!state[el.getAttribute("data-sub")]);
+    });
+
+    var welcome = document.getElementById("welcome");
+    if (welcome) {
+      welcome.textContent = prefs.name
+        ? "Welcome, " + prefs.name
+        : "A simple toggle board that saves its state locally.";
+    }
+
+    document.body.setAttribute("data-accent", prefs.accent || "cyan");
+    save();
+  }
+
+  document.querySelectorAll("[data-key]").forEach(function (el) {
+    el.addEventListener("change", function () {
+      state[el.getAttribute("data-key")] = el.checked;
+      normalize();
+      applyState();
+    });
+  });
+
+  document.querySelectorAll("[data-sub]").forEach(function (el) {
+    el.addEventListener("click", function () {
+      if (!state.AIM) return;
+
+      var key = el.getAttribute("data-sub");
+      state.HEAD = key === "HEAD";
+      state.BODY = key === "BODY";
+      applyState();
+    });
+  });
+
+  var reset = document.querySelector("[data-action='reset']");
+  if (reset) {
+    reset.addEventListener("click", function () {
+      state = {
+        AIM: false,
+        HEAD: false,
+        BODY: false,
+        ESP: false,
+        M1: false,
+        NORECOIL: false
+      };
+      applyState();
+    });
+  }
+
+  var clear = document.querySelector("[data-action='clear']");
+  if (clear) {
+    clear.addEventListener("click", function () {
+      localStorage.removeItem("panelState");
+      localStorage.removeItem("panelPrefs");
+      state = Object.assign({}, DEFAULTS);
+      prefs = { name: "", accent: "cyan" };
+      applyState();
+    });
+  }
+
+  var nameInput = document.getElementById("nameInput");
+  if (nameInput) {
+    nameInput.value = prefs.name || "";
+    nameInput.addEventListener("input", function () {
+      prefs.name = nameInput.value.slice(0, 24);
+      save();
+      applyState();
+    });
+  }
+
+  document.querySelectorAll("[data-accent]").forEach(function (el) {
+    el.addEventListener("click", function () {
+      prefs.accent = el.getAttribute("data-accent");
+      applyState();
+    });
+  });
+
+  document.querySelectorAll("[data-open]").forEach(function (el) {
+    el.addEventListener("click", function () {
+      var id = el.getAttribute("data-open");
+      var modal = document.getElementById(id);
+      if (modal) modal.classList.add("show");
+    });
+  });
+
+  document.querySelectorAll("[data-close]").forEach(function (el) {
+    el.addEventListener("click", function () {
+      var id = el.getAttribute("data-close");
+      var modal = document.getElementById(id);
+      if (modal) modal.classList.remove("show");
+    });
+  });
+
+  applyState();
 })();
