@@ -76,7 +76,7 @@
     });
   });
 
-  var reset = document.querySelector("[data-action='reset']");
+  var reset = document.getElementById('resetBtn');
   if (reset) {
     reset.addEventListener("click", function () {
       state = {
@@ -91,7 +91,7 @@
     });
   }
 
-  var clear = document.querySelector("[data-action='clear']");
+  var clear = document.getElementById('clearBtn');
   if (clear) {
     clear.addEventListener("click", function () {
       localStorage.removeItem("panelState");
@@ -134,6 +134,38 @@
       if (modal) modal.classList.remove("show");
     });
   });
+
+  document.querySelectorAll("[data-game]").forEach(function (el) {
+    el.addEventListener("click", function () {
+      document.querySelectorAll("[data-game]").forEach(function (item) {
+        item.classList.remove("active");
+      });
+      el.classList.add("active");
+    });
+  });
+
+  var saveProfile = document.getElementById("saveProfile");
+  if (saveProfile) {
+    saveProfile.addEventListener("click", function () {
+      if (nameInput) {
+        prefs.name = nameInput.value.slice(0, 24);
+        save();
+        applyState();
+      }
+      var modal = document.getElementById("profileModal");
+      if (modal) modal.classList.remove("show");
+    });
+  }
+
+  var injectBtn = document.getElementById("injectBtn");
+  if (injectBtn) {
+    injectBtn.addEventListener("click", function () {
+      injectBtn.textContent = "✓ DEMO READY";
+      setTimeout(function () {
+        injectBtn.textContent = "𝗜𝗡𝗝𝗘𝗖";
+      }, 1200);
+    });
+  }
 
   applyState();
 })();
